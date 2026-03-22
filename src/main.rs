@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut contents = String::new();
         decoder.read_to_string(&mut contents)?;
         let (_, contents) = contents.split_once('\0').ok_or("Invalid object format")?;
-        println!("{contents}");
+        print!("{contents}");
     } else {
         println!("unknown command: {}", args[1]);
     }
