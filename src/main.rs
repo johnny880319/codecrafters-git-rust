@@ -24,7 +24,7 @@ fn main() {
         let mut decoder = GzDecoder::new(fs::File::open(object_path).unwrap());
         let mut contents = String::new();
         decoder.read_to_string(&mut contents).unwrap();
-        println!(contents);
+        println!("{contents}");
     } else {
         println!("unknown command: {}", args[1]);
     }
