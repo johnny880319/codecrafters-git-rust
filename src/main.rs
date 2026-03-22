@@ -1,4 +1,4 @@
-use flate2::read::GzDecoder;
+use flate2::read::ZlibDecoder;
 use std::env;
 use std::fs;
 use std::io::Read;
@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         let object_hash = &args[3];
         let object_path = format!(".git/objects/{}/{}", &object_hash[0..2], &object_hash[2..]);
-        let mut decoder = GzDecoder::new(fs::File::open(object_path)?);
+        let mut decoder = ZlibDecoder::new(fs::File::open(object_path)?);
         let mut contents = String::new();
         decoder.read_to_string(&mut contents)?;
         println!("{contents}");
