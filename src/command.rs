@@ -77,7 +77,9 @@ fn cmd_ls_tree(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let object_path = format!(".git/objects/{}/{}", &tree_sha[0..2], &tree_sha[2..]);
     let mut decoder = ZlibDecoder::new(fs::File::open(object_path)?);
     let mut contents = String::new();
+    println!("Reading tree object from {}", object_path);
     decoder.read_to_string(&mut contents)?;
+    println!("Decoded tree object contents: {}", contents);
     let entries = decode_tree_object(&contents)?;
     if name_only {
         for entry in entries {
