@@ -110,19 +110,11 @@ fn decode_tree_object(contents: &[u8]) -> Result<Vec<TreeEntry>> {
     let mut result = Vec::new();
     while !contents.is_empty() {
         let (mode, rest) = split_at_byte(contents, b' ')?;
-        let mode = std::str::from_utf8(mode)?;
         let (name, rest) = split_at_byte(rest, 0)?;
-        let name = std::str::from_utf8(name)?;
         let sha = &rest[0..20];
         contents = &rest[20..];
 
-        let entry_type = if mode == "40000" { "tree" } else { "blob" };
-        result.push(TreeEntry {
-            mode: mode.to_string(),
-            entry_type: entry_type.to_string(),
-            sha: hex::encode(sha),
-            name: name.to_string(),
-        });
+        result.push(get_tree_entry(mode, name, sha)?);
     }
     Ok(result)
 }
@@ -135,4 +127,21 @@ fn split_at_byte(contents: &[u8], byte: u8) -> Result<(&[u8], &[u8])> {
     let first_part: &[u8] = &contents[0..pos];
     let second_part: &[u8] = &contents[pos + 1..];
     Ok((first_part, second_part))
+}
+
+fn get_tree_entry(mode: &[u8], name: &[u8], sha: &[u8]) -> Result<TreeEntry> {
+    let mode = std::str::from_utf8(mode)?.to_string();
+    let sha = hex::encode(sha);
+    let name = std::str::from_utf8(name)?.to_string();
+    let entry_type = if mode == "40000" {
+        "tree".to_string()
+    } else {
+        "blob".to_string()
+    };
+    Ok(TreeEntry {
+        mode,
+        entry_type,
+        sha,
+        name,
+    })
 }
