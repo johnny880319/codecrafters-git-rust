@@ -132,5 +132,7 @@ fn split_at_byte(contents: &[u8], byte: u8) -> Result<(&[u8], &[u8])> {
         .iter()
         .position(|&b| b == byte)
         .context("Invalid object format")?;
-    Ok(contents.split_at(pos))
+    let first_part: &[u8] = &contents[0..pos];
+    let second_part: &[u8] = &contents[pos + 1..];
+    Ok((first_part, second_part))
 }
