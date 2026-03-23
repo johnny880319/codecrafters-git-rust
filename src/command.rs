@@ -1,4 +1,6 @@
+use flate2::Compression;
 use flate2::read::ZlibDecoder;
+use flate2::write::ZlibEncoder;
 use sha1::Digest;
 use sha1::Sha1;
 use std::fs;
@@ -50,16 +52,16 @@ fn cmd_hash_object(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let data = fs::read(file_path)?;
     let header = format!("blob {}\0", data.len());
     let mut hasher = Sha1::new();
+
     hasher.update(header.as_bytes());
     hasher.update(&data);
     let hash = hasher.finalize();
     let hash_str = format!("{hash:x}");
+
     let object_path = format!(".git/objects/{}/{}", &hash_str[0..2], &hash_str[2..]);
     fs::create_dir_all(format!(".git/objects/{}", &hash_str[0..2]))?;
-    let mut encoder = flate2::write::ZlibEncoder::new(
-        fs::File::create(object_path)?,
-        flate2::Compression::default(),
-    );
+
+    let mut encoder = ZlibEncoder::new(fs::File::create(object_path)?, Compression::default());
     encoder.write_all(header.as_bytes())?;
     encoder.write_all(&data)?;
     encoder.finish()?;
