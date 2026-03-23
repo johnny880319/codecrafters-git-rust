@@ -111,7 +111,6 @@ fn decode_tree_object(contents: &[u8]) -> Result<Vec<TreeEntry>> {
     while !contents.is_empty() {
         let (mode, rest) = split_at_byte(contents, b' ')?;
         let mode = std::str::from_utf8(mode)?;
-        let rest = &rest[1..];
         let (name, rest) = split_at_byte(rest, 0)?;
         let name = std::str::from_utf8(name)?;
         let sha = &rest[0..20];
