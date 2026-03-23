@@ -12,6 +12,7 @@ pub fn dispatch_command(args: &[String]) -> Result<(), Box<dyn std::error::Error
         "init" => cmd_init(args),
         "cat-file" => cmd_cat_file(args),
         "hash-object" => cmd_hash_object(args),
+        "ls-tree" => cmd_ls_tree(args),
         _ => {
             println!("unknown command: {}", args[1]);
             Ok(())
@@ -67,4 +68,59 @@ fn cmd_hash_object(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     encoder.finish()?;
     println!("{hash_str}");
     Ok(())
+}
+
+fn cmd_ls_tree(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let name_only = args[2] == "--name-only";
+    let tree_sha = args.last().ok_or("Missing tree SHA")?;
+
+    let object_path = format!(".git/objects/{}/{}", &tree_sha[0..2], &tree_sha[2..]);
+    let mut decoder = ZlibDecoder::new(fs::File::open(object_path)?);
+    let mut contents = String::new();
+    decoder.read_to_string(&mut contents)?;
+    let entries = decode_tree_object(&contents)?;
+    if name_only {
+        for entry in entries {
+            println!("{}", entry.name);
+        }
+    } else {
+        for entry in entries {
+            println!(
+                "{} {} {}\t{}",
+                entry.mode, entry.entry_type, entry.sha, entry.name
+            );
+        }
+    }
+    Ok(())
+}
+
+struct TreeEntry {
+    mode: String,
+    entry_type: String,
+    sha: String,
+    name: String,
+}
+
+/// Returns a list of (mode, tree/blob, sha, name) entries
+fn decode_tree_object(contents: &str) -> Result<Vec<TreeEntry>, Box<dyn std::error::Error>> {
+    let (_, mut contents) = contents.split_once('\0').ok_or("Invalid object format")?;
+
+    let mut result = Vec::new();
+    while !contents.is_empty() {
+        let (mode, rest) = contents
+            .split_once(' ')
+            .ok_or("Invalid tree entry format")?;
+        let (name, rest) = rest.split_once('\0').ok_or("Invalid tree entry format")?;
+        let sha = &rest[0..40];
+        contents = &rest[40..];
+
+        let entry_type = if mode == "40000" { "tree" } else { "blob" };
+        result.push(TreeEntry {
+            mode: mode.to_string(),
+            entry_type: entry_type.to_string(),
+            sha: sha.to_string(),
+            name: name.to_string(),
+        });
+    }
+    Ok(result)
 }
