@@ -105,13 +105,7 @@ struct TreeEntry {
 
 /// Returns a list of (mode, tree/blob, sha, name) entries
 fn decode_tree_object(contents: &[u8]) -> Result<Vec<TreeEntry>> {
-    let (_, mut contents) = contents.split_at(
-        contents
-            .iter()
-            .position(|&b| b == 0)
-            .context("Invalid object format")?
-            + 1,
-    );
+    let (_, mut contents) = split_at_byte(contents, 0)?;
 
     let mut result = Vec::new();
     while !contents.is_empty() {
