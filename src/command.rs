@@ -43,7 +43,7 @@ fn cmd_cat_file(args: &[String]) -> Result<()> {
     let object_hash = &args[3];
     let contents = read_object(object_hash)?;
     let (_, contents) = split_at_byte(&contents, 0)?;
-    print!("{}", hex::encode(contents));
+    print!("{}", std::str::from_utf8(contents)?);
     Ok(())
 }
 
