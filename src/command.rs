@@ -50,6 +50,10 @@ fn cmd_cat_file(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+/// Returns the SHA-1 hash of the blob object created from the file at `file_path`.
+/// ```
+/// blob <size>\0<content>
+/// ```
 fn cmd_hash_object(args: &[String]) -> Result<()> {
     if args[2] != "-w" {
         eprintln!("Usage: hash-object -w <file>");
@@ -82,6 +86,43 @@ fn cmd_ls_tree(args: &[String]) -> Result<()> {
             );
         }
     }
+    Ok(())
+}
+
+/// Recursively writes the current directory as a tree object and returns the SHA-1 hash of the tree object.
+///
+/// ```
+/// tree <size>\0
+/// <mode> <name>\0<20_byte_sha>
+/// <mode> <name>\0<20_byte_sha>
+/// ```
+fn cmd_write_tree(_args: &[String]) -> Result<()> {
+    let hash_str = dfs_write_tree(".")?;
+    println!("{hash_str}");
+    Ok(())
+}
+
+///```
+/// commit <size>\0tree <tree_sha>
+/// parent <parent_sha>
+/// author <name> <<email>> <timestamp> <timezone>
+/// committer <name> <<email>> <timestamp> <timezone>
+///
+/// <commit message>
+/// ```
+fn cmd_commit_tree(args: &[String]) -> Result<()> {
+    if args[3] != "-p" || args[5] != "-m" {
+        eprintln!("Usage: commit-tree <tree_sha> -p <parent_commit_sha> -m <message>");
+        return Ok(());
+    }
+    let tree_sha = &args[2];
+    let commit_sha = &args[4];
+    let message = &args[6];
+    let data = format!(
+        "tree {tree_sha}\nparent {commit_sha}\nauthor Code Crafters <> 0 +0000\ncommitter Code Crafters <> 0 +0000\n\n{message}\n"
+    );
+    let hash_str = hash_and_save(data.as_bytes(), "commit")?;
+    println!("{hash_str}");
     Ok(())
 }
 
@@ -135,19 +176,6 @@ fn get_tree_entry(mode: &[u8], name: &[u8], sha: &[u8]) -> Result<TreeEntry> {
     })
 }
 
-fn cmd_write_tree(_args: &[String]) -> Result<()> {
-    let hash_str = dfs_write_tree(".")?;
-    println!("{hash_str}");
-    Ok(())
-}
-
-/// Recursively writes a tree object for the directory at `path` and returns its SHA-1 hash.
-///
-/// ```
-/// tree <size>\0
-/// <mode> <name>\0<20_byte_sha>
-/// <mode> <name>\0<20_byte_sha>
-/// ```
 fn dfs_write_tree(path: &str) -> Result<String> {
     // get all entries in the directory
     let mut entries: Vec<_> = fs::read_dir(path)?.collect::<Result<Vec<_>, _>>()?;
@@ -179,10 +207,6 @@ fn dfs_write_tree(path: &str) -> Result<String> {
     Ok(hash_str)
 }
 
-/// Returns the SHA-1 hash of the blob object created from the file at `file_path`.
-/// ```
-/// blob <size>\0<content>
-/// ```
 fn hash_blob(file_path: &String) -> Result<String> {
     let data = fs::read(file_path)?;
     let hash_str = hash_and_save(&data, "blob")?;
@@ -206,28 +230,4 @@ fn hash_and_save(data: &[u8], object_type: &str) -> Result<String> {
     encoder.write_all(data)?;
     encoder.finish()?;
     Ok(hash_str)
-}
-
-///```
-/// commit <size>\0tree <tree_sha>
-/// parent <parent_sha>
-/// author <name> <<email>> <timestamp> <timezone>
-/// committer <name> <<email>> <timestamp> <timezone>
-///
-/// <commit message>
-/// ```
-fn cmd_commit_tree(args: &[String]) -> Result<()> {
-    if args[3] != "-p" || args[5] != "-m" {
-        eprintln!("Usage: commit-tree <tree_sha> -p <parent_commit_sha> -m <message>");
-        return Ok(());
-    }
-    let tree_sha = &args[2];
-    let commit_sha = &args[4];
-    let message = &args[6];
-    let data = format!(
-        "tree {tree_sha}\nparent {commit_sha}\nauthor Code Crafters <> 0 +0000\ncommitter Code Crafters <> 0 +0000\n\n{message}\n"
-    );
-    let hash_str = hash_and_save(data.as_bytes(), "commit")?;
-    println!("{hash_str}");
-    Ok(())
 }
