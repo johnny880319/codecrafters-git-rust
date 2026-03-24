@@ -18,6 +18,7 @@ pub fn dispatch_command(args: &[String]) -> Result<()> {
         "hash-object" => cmd_hash_object(args),
         "ls-tree" => cmd_ls_tree(args),
         "write-tree" => cmd_write_tree(args),
+        "commit-tree" => cmd_commit_tree(args),
         _ => {
             println!("unknown command: {}", args[1]);
             Ok(())
@@ -205,4 +206,28 @@ fn hash_and_save(data: &[u8], object_type: &str) -> Result<String> {
     encoder.write_all(data)?;
     encoder.finish()?;
     Ok(hash_str)
+}
+
+///```
+/// commit <size>\0tree <tree_sha>
+/// parent <parent_sha>
+/// author <name> <<email>> <timestamp> <timezone>
+/// committer <name> <<email>> <timestamp> <timezone>
+///
+/// <commit message>
+/// ```
+fn cmd_commit_tree(args: &[String]) -> Result<()> {
+    if args[3] != "-p" || args[5] != "-m" {
+        eprintln!("Usage: commit-tree <tree_sha> -p <parent_commit_sha> -m <message>");
+        return Ok(());
+    }
+    let tree_sha = &args[2];
+    let commit_sha = &args[4];
+    let message = &args[6];
+    let data = format!(
+        "tree {tree_sha}\nparent {commit_sha}\nauthor Code Crafters <> 0 +0000\ncommitter Code Crafters <> 0 +0000\n\n{message}\n"
+    );
+    let hash_str = hash_and_save(data.as_bytes(), "commit")?;
+    println!("{hash_str}");
+    Ok(())
 }
