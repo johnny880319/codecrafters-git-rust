@@ -189,15 +189,9 @@ fn dfs_write_tree(path: &str) -> Result<String> {
         let (mode, sha) = if metadata.is_dir() {
             ("40000", dfs_write_tree(&entry.path().to_string_lossy())?)
         } else if metadata.permissions().mode() & 0o111 != 0 {
-            (
-                "100755",
-                hash_blob(&entry.path().to_string_lossy().to_string())?,
-            ) // executable
+            ("100755", hash_blob(&entry.path().to_string_lossy())?) // executable
         } else {
-            (
-                "100644",
-                hash_blob(&entry.path().to_string_lossy().to_string())?,
-            ) // regular file
+            ("100644", hash_blob(&entry.path().to_string_lossy())?) // regular file
         };
         result.extend(format!("{mode} {}\0", entry.file_name().to_string_lossy()).as_bytes());
         result.extend(hex::decode(sha)?);
@@ -207,7 +201,7 @@ fn dfs_write_tree(path: &str) -> Result<String> {
     Ok(hash_str)
 }
 
-fn hash_blob(file_path: &String) -> Result<String> {
+fn hash_blob(file_path: &str) -> Result<String> {
     let data = fs::read(file_path)?;
     let hash_str = hash_and_save(&data, "blob")?;
     Ok(hash_str)
