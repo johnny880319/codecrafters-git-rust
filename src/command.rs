@@ -41,12 +41,9 @@ fn cmd_cat_file(args: &[String]) -> Result<()> {
         return Ok(());
     }
     let object_hash = &args[3];
-    let object_path = format!(".git/objects/{}/{}", &object_hash[0..2], &object_hash[2..]);
-    let mut decoder = ZlibDecoder::new(fs::File::open(object_path)?);
-    let mut contents = String::new();
-    decoder.read_to_string(&mut contents)?;
-    let (_, contents) = contents.split_once('\0').context("Invalid object format")?;
-    print!("{contents}");
+    let contents = read_object(object_hash)?;
+    let (_, contents) = split_at_byte(&contents, 0)?;
+    print!("{}", hex::encode(contents));
     Ok(())
 }
 
@@ -69,10 +66,7 @@ fn cmd_ls_tree(args: &[String]) -> Result<()> {
     let name_only = args[2] == "--name-only";
     let tree_sha = args.last().context("Missing tree SHA")?;
 
-    let object_path = format!(".git/objects/{}/{}", &tree_sha[0..2], &tree_sha[2..]);
-    let mut decoder = ZlibDecoder::new(fs::File::open(object_path)?);
-    let mut contents = Vec::new();
-    decoder.read_to_end(&mut contents)?;
+    let contents = read_object(tree_sha)?;
     let entries = decode_tree_object(&contents)?;
     if name_only {
         for entry in entries {
@@ -131,6 +125,14 @@ struct TreeEntry {
     entry_type: String,
     sha: String,
     name: String,
+}
+
+fn read_object(sha: &str) -> Result<Vec<u8>> {
+    let object_path = format!(".git/objects/{}/{}", &sha[0..2], &sha[2..]);
+    let mut decoder = ZlibDecoder::new(fs::File::open(object_path)?);
+    let mut contents = Vec::new();
+    decoder.read_to_end(&mut contents)?;
+    Ok(contents)
 }
 
 /// Returns a list of (mode, tree/blob, sha, name) entries
