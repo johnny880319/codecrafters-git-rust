@@ -128,7 +128,7 @@ struct TreeEntry {
 }
 
 fn read_object(sha: &str) -> Result<Vec<u8>> {
-    let object_path = format!(".git/objects/{}/{}", &sha[0..2], &sha[2..]);
+    let object_path = format!(".git/objects/{}/{}", &sha[..2], &sha[2..]);
     let mut decoder = ZlibDecoder::new(fs::File::open(object_path)?);
     let mut contents = Vec::new();
     decoder.read_to_end(&mut contents)?;
@@ -143,7 +143,7 @@ fn decode_tree_object(contents: &[u8]) -> Result<Vec<TreeEntry>> {
     while !contents.is_empty() {
         let (mode, rest) = split_at_byte(contents, b' ')?;
         let (name, rest) = split_at_byte(rest, 0)?;
-        let sha = &rest[0..20];
+        let sha = &rest[..20];
         contents = &rest[20..];
 
         result.push(get_tree_entry(mode, name, sha)?);
@@ -156,8 +156,8 @@ fn split_at_byte(contents: &[u8], byte: u8) -> Result<(&[u8], &[u8])> {
         .iter()
         .position(|&b| b == byte)
         .context("Invalid object format")?;
-    let first_part: &[u8] = &contents[0..pos];
-    let second_part: &[u8] = &contents[pos + 1..];
+    let first_part = &contents[..pos];
+    let second_part = &contents[pos + 1..];
     Ok((first_part, second_part))
 }
 
@@ -220,8 +220,8 @@ fn hash_and_save(data: &[u8], object_type: &str) -> Result<String> {
     let hash = hasher.finalize();
     let hash_str = format!("{hash:x}");
 
-    let object_path = format!(".git/objects/{}/{}", &hash_str[0..2], &hash_str[2..]);
-    fs::create_dir_all(format!(".git/objects/{}", &hash_str[0..2]))?;
+    let object_path = format!(".git/objects/{}/{}", &hash_str[..2], &hash_str[2..]);
+    fs::create_dir_all(format!(".git/objects/{}", &hash_str[..2]))?;
 
     let mut encoder = ZlibEncoder::new(fs::File::create(object_path)?, Compression::default());
     encoder.write_all(header.as_bytes())?;
