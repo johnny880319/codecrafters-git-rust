@@ -153,6 +153,9 @@ fn dfs_write_tree(path: &str) -> Result<String> {
     entries.sort_by_key(DirEntry::file_name);
     let mut result = Vec::new();
     for entry in entries {
+        if entry.file_name() == ".git" {
+            continue;
+        }
         let metadata = entry.metadata()?;
         let (mode, sha) = if metadata.is_dir() {
             ("40000", dfs_write_tree(&entry.path().to_string_lossy())?)
