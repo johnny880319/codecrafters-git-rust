@@ -6,8 +6,10 @@ use flate2::write::ZlibEncoder;
 use sha1::Digest;
 use sha1::Sha1;
 use std::fs;
+use std::fs::DirEntry;
 use std::io::Read;
 use std::io::Write;
+use std::os::unix::fs::PermissionsExt;
 
 pub fn dispatch_command(args: &[String]) -> Result<()> {
     match args[1].as_str() {
@@ -15,6 +17,7 @@ pub fn dispatch_command(args: &[String]) -> Result<()> {
         "cat-file" => cmd_cat_file(args),
         "hash-object" => cmd_hash_object(args),
         "ls-tree" => cmd_ls_tree(args),
+        "write-tree" => cmd_write_tree(args),
         _ => {
             println!("unknown command: {}", args[1]);
             Ok(())
@@ -52,22 +55,7 @@ fn cmd_hash_object(args: &[String]) -> Result<()> {
         return Ok(());
     }
     let file_path = &args[3];
-    let data = fs::read(file_path)?;
-    let header = format!("blob {}\0", data.len());
-    let mut hasher = Sha1::new();
-
-    hasher.update(header.as_bytes());
-    hasher.update(&data);
-    let hash = hasher.finalize();
-    let hash_str = format!("{hash:x}");
-
-    let object_path = format!(".git/objects/{}/{}", &hash_str[0..2], &hash_str[2..]);
-    fs::create_dir_all(format!(".git/objects/{}", &hash_str[0..2]))?;
-
-    let mut encoder = ZlibEncoder::new(fs::File::create(object_path)?, Compression::default());
-    encoder.write_all(header.as_bytes())?;
-    encoder.write_all(&data)?;
-    encoder.finish()?;
+    let hash_str = hash_blob(file_path)?;
     println!("{hash_str}");
     Ok(())
 }
@@ -144,4 +132,74 @@ fn get_tree_entry(mode: &[u8], name: &[u8], sha: &[u8]) -> Result<TreeEntry> {
         sha,
         name,
     })
+}
+
+fn cmd_write_tree(_args: &[String]) -> Result<()> {
+    let hash_str = dfs_write_tree(".")?;
+    println!("{hash_str}");
+    Ok(())
+}
+
+/// Recursively writes a tree object for the directory at `path` and returns its SHA-1 hash.
+///
+/// ```
+/// tree <size>\0
+/// <mode> <name>\0<20_byte_sha>
+/// <mode> <name>\0<20_byte_sha>
+/// ```
+fn dfs_write_tree(path: &str) -> Result<String> {
+    // get all entries in the directory
+    let mut entries: Vec<_> = fs::read_dir(path)?.collect::<Result<Vec<_>, _>>()?;
+    entries.sort_by_key(DirEntry::file_name);
+    let mut result = Vec::new();
+    for entry in entries {
+        let metadata = entry.metadata()?;
+        let (mode, sha) = if metadata.is_dir() {
+            ("40000", dfs_write_tree(&entry.path().to_string_lossy())?)
+        } else if metadata.permissions().mode() & 0o111 != 0 {
+            (
+                "100755",
+                hash_blob(&entry.path().to_string_lossy().to_string())?,
+            ) // executable
+        } else {
+            (
+                "100644",
+                hash_blob(&entry.path().to_string_lossy().to_string())?,
+            ) // regular file
+        };
+        result.extend(format!("{mode} {}\0", entry.file_name().to_string_lossy()).as_bytes());
+        result.extend(hex::decode(sha)?);
+    }
+
+    let hash_str = hash_and_save(&result, "tree")?;
+    Ok(hash_str)
+}
+
+/// Returns the SHA-1 hash of the blob object created from the file at `file_path`.
+/// ```
+/// blob <size>\0<content>
+/// ```
+fn hash_blob(file_path: &String) -> Result<String> {
+    let data = fs::read(file_path)?;
+    let hash_str = hash_and_save(&data, "blob")?;
+    Ok(hash_str)
+}
+
+fn hash_and_save(data: &[u8], object_type: &str) -> Result<String> {
+    let header = format!("{object_type} {}\0", data.len());
+    let mut hasher = Sha1::new();
+
+    hasher.update(header.as_bytes());
+    hasher.update(data);
+    let hash = hasher.finalize();
+    let hash_str = format!("{hash:x}");
+
+    let object_path = format!(".git/objects/{}/{}", &hash_str[0..2], &hash_str[2..]);
+    fs::create_dir_all(format!(".git/objects/{}", &hash_str[0..2]))?;
+
+    let mut encoder = ZlibEncoder::new(fs::File::create(object_path)?, Compression::default());
+    encoder.write_all(header.as_bytes())?;
+    encoder.write_all(data)?;
+    encoder.finish()?;
+    Ok(hash_str)
 }
