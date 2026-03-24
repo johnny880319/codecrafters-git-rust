@@ -188,12 +188,14 @@ fn dfs_write_tree(path: &str) -> Result<String> {
             continue;
         }
         let metadata = entry.metadata()?;
+        let entry_path = entry.path();
+        let entry_path = &entry_path.to_string_lossy();
         let (mode, sha) = if metadata.is_dir() {
-            ("40000", dfs_write_tree(&entry.path().to_string_lossy())?)
+            ("40000", dfs_write_tree(entry_path)?)
         } else if metadata.permissions().mode() & 0o111 != 0 {
-            ("100755", hash_blob(&entry.path().to_string_lossy())?) // executable
+            ("100755", hash_blob(entry_path)?) // executable
         } else {
-            ("100644", hash_blob(&entry.path().to_string_lossy())?) // regular file
+            ("100644", hash_blob(entry_path)?) // regular file
         };
         result.extend(format!("{mode} {}\0", entry.file_name().to_string_lossy()).as_bytes());
         result.extend(hex::decode(sha)?);
